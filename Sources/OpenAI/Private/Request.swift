@@ -6,16 +6,23 @@
 //
 
 import Foundation
+import Alamofire
 
 class Request<ResultType> {
     
-    let body: Codable
-    let url: URL
+    let body: Codable?
+    let url: OpenAI.APIPath
     let timeoutInterval: TimeInterval
+    let method: HTTPMethod
     
-    init(body: Codable, url: URL, timeoutInterval: TimeInterval) {
+    init(body: Codable? = nil,
+         url: OpenAI.APIPath,
+         method: HTTPMethod = .post,
+         timeoutInterval: TimeInterval = 60) {
         self.body = body
         self.url = url
+        self.method = method
         self.timeoutInterval = timeoutInterval
     }
+    
 }
