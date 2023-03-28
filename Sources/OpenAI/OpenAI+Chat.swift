@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import Alamofire
 
 ///MARK: - Chat
 public extension OpenAI {
@@ -152,6 +153,10 @@ public extension OpenAI {
                timeoutInterval: TimeInterval = 60.0,
                stream: @escaping (_ result: Chat) -> Void,
                completion: @escaping (Result<ChatResult, Error>) -> Void) {
+        guard let request = makeRequest(Request<ChatQuery>(body: query, url: .chats, timeoutInterval: timeoutInterval)) else {
+            return
+        }
+        
         do {
             var query = query
             query.stream = true
@@ -183,7 +188,7 @@ public extension OpenAI {
                                                          total_tokens: 0))
                     completion(.success(result))
                 } else {
-                    assertionFailure()
+                    completion(.failure(NSError(domain: "", code: statusCode ?? 0)))
                 }
             }
             source.onMessage { id, event, data in

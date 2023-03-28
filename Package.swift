@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "OpenAI",
+    platforms: [.iOS(.v13), .macCatalyst(.v13), .macOS(.v12)],
     products: [
         .library(
             name: "OpenAI",
