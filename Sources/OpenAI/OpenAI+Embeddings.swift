@@ -17,7 +17,7 @@ public extension OpenAI {
         /// Input text to get embeddings for
         public let input: String
 
-        public init(model: Model, input: String) {
+        public init(model: OpenAIModel, input: String) {
             self.model = model.name
             self.input = input
         }
