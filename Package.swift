@@ -15,11 +15,14 @@ let package = Package(
         .package(url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.6.4"))
     ],
     targets: [
-        .target(
-            name: "OpenAI",
-            dependencies: [
-                "Alamofire"
-            ]),
+        .target(name: "OpenAI",
+                dependencies: [
+                    "Alamofire"
+                ],
+                resources: [
+                    .process("Resources/encoder.json"),
+                    .process("Resources/vocab.bpe")
+                ]),
         .testTarget(
             name: "OpenAITests",
             dependencies: ["OpenAI"]),
