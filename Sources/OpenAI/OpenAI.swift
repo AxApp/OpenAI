@@ -31,9 +31,8 @@ final public class OpenAI {
     public let serivce: Serivce
     private let session = URLSession.shared
     
-    var eventSources = Set<EventSource>()
-    
 #if canImport(Combine)
+    var eventSources = Set<EventSource>()
     var cancellables = Set<AnyCancellable>()
 #endif
     

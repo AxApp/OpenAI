@@ -6,6 +6,7 @@
 //  Copyright © 2019 inaka. All rights reserved.
 //
 
+#if canImport(Combine)
 import Foundation
 
 enum Event {
@@ -101,3 +102,4 @@ private extension Event {
         return (key as String?, value as String?)
     }
 }
+#endif

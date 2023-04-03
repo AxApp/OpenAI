@@ -6,6 +6,7 @@
 //  Copyright © 2019 inaka. All rights reserved.
 //
 
+#if canImport(Combine)
 import Foundation
 
 final class EventStreamParser {
@@ -85,3 +86,4 @@ final class EventStreamParser {
         return nil
     }
 }
+#endif
