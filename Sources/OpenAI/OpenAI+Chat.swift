@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(Combine)
 import Combine
+#endif
 import Alamofire
 
 ///MARK: - Chat
@@ -142,6 +144,7 @@ public extension OpenAI {
         let choices: [Choice]
     }
     
+    #if canImport(Combine)
     func chats(query: ChatQuery, timeoutInterval: TimeInterval = 60.0) -> AnyPublisher<Chat, Error> {
         let suject = PassthroughSubject<Chat, Error>()
         chats(query: query, timeoutInterval: timeoutInterval) { result in
@@ -239,5 +242,5 @@ public extension OpenAI {
         }.store(in: &cancellables)
         source.connect()
     }
-    
+    #endif
 }

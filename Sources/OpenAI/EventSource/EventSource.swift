@@ -6,6 +6,7 @@
 //  Copyright (c) 2015 Inaka. All rights reserved.
 //
 
+#if canImport(Combine)
 import Foundation
 import Combine
 
@@ -215,3 +216,4 @@ private extension EventSource {
     }
 
 }
+#endif

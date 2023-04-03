@@ -7,7 +7,9 @@
 
 import Foundation
 import Alamofire
+#if canImport(Combine)
 import Combine
+#endif
 
 final public class OpenAI {
     
@@ -30,7 +32,10 @@ final public class OpenAI {
     private let session = URLSession.shared
     
     var eventSources = Set<EventSource>()
+    
+#if canImport(Combine)
     var cancellables = Set<AnyCancellable>()
+#endif
     
     public init(token: String, organization: String? = nil) {
         self.serivce = .init(token: token,
