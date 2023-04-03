@@ -93,14 +93,14 @@ public extension OpenAI {
     }
     
     struct ChatError: Codable, LocalizedError {
-        let message: String
-        let type: String
-        let code: String
+        public let message: String
+        public let type: String?
+        public let code: String?
         public var errorDescription: String? { message }
     }
     
     struct ChatErrorResult: Codable {
-        let error: ChatError
+        public let error: ChatError
     }
     
     struct ChatResult: Codable {
