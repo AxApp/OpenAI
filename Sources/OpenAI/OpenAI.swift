@@ -28,7 +28,9 @@ final public class OpenAI {
     
     public let serivce: Serivce
     private let session = URLSession.shared
+    
     var eventSources = Set<EventSource>()
+    var cancellables = Set<AnyCancellable>()
     
     public init(token: String, organization: String? = nil) {
         self.serivce = .init(token: token,

@@ -90,6 +90,17 @@ public extension OpenAI {
         }
     }
     
+    struct ChatError: Codable, LocalizedError {
+        let message: String
+        let type: String
+        let code: String
+        public var errorDescription: String? { message }
+    }
+    
+    struct ChatErrorResult: Codable {
+        let error: ChatError
+    }
+    
     struct ChatResult: Codable {
         
         public struct Choice: Codable {
@@ -166,52 +177,66 @@ public extension OpenAI {
         var chat = Chat(role: .assistant, content: "")
         var deltaChoice = DeltaChatResult.Choice(delta: .init(role: chat.role, content: nil), index: 0, finish_reason: nil)
         
-        source.onComplete { statusCode, reconnect, error in
+        source.state
+            .receive(on: RunLoop.main)
+            .sink { finished in
+            switch finished {
+            case .finished:
+                if let deltaResult {
+                    let result = ChatResult(id: deltaResult.id,
+                                            object: deltaResult.object,
+                                            created: deltaResult.created,
+                                            model: deltaResult.model,
+                                            choices: [.init(index: deltaChoice.index,
+                                                            message: chat,
+                                                            finish_reason: deltaChoice.finish_reason ?? "")],
+                                            usage: .init(prompt_tokens: 0,
+                                                         completion_tokens: 0,
+                                                         total_tokens: 0))
+                    completion(.success(result))
+                }
+            case .failure(let fail):
+                switch fail {
+                case .data(let data):
+                    if let error = try? JSONDecoder().decode(ChatErrorResult.self, from: data).error {
+                        completion(.failure(error))
+                    }
+                case .error(let error):
+                    completion(.failure(error))
+                }
+            }
             self.eventSources.remove(source)
-            if let error {
-                completion(.failure(error))
-            } else if let deltaResult {
-                let result = ChatResult(id: deltaResult.id,
-                                        object: deltaResult.object,
-                                        created: deltaResult.created,
-                                        model: deltaResult.model,
-                                        choices: [.init(index: deltaChoice.index,
-                                                        message: chat,
-                                                        finish_reason: deltaChoice.finish_reason ?? "")],
-                                        usage: .init(prompt_tokens: 0,
-                                                     completion_tokens: 0,
-                                                     total_tokens: 0))
-                completion(.success(result))
-            } else {
-                completion(.failure(NSError(domain: "", code: statusCode ?? 0)))
+        } receiveValue: { state in
+            switch state {
+            case .stream(let message):
+                guard let data = message.data, data != "[DONE]" else { return }
+                do {
+                    let decoded = try JSONDecoder().decode(DeltaChatResult.self, from: Data(data.utf8))
+                    deltaResult = decoded
+                    guard let choice = decoded.choices.first else {
+                        return
+                    }
+                    
+                    deltaChoice = choice
+                    
+                    guard let delta = choice.delta else {
+                        return
+                    }
+                    
+                    if chat.content.isEmpty, delta.content?.trimmingCharacters(in: .newlines).isEmpty == true {
+                        return
+                    }
+                    
+                    chat.role = delta.role ?? chat.role
+                    chat.content += delta.content ?? ""
+                    stream(chat)
+                } catch {
+                    print("Chat completion error: \(error)")
+                }
+            case .closed, .connecting:
+                break
             }
-        }
-        source.onMessage { id, event, data in
-            guard let data, data != "[DONE]" else { return }
-            do {
-                let decoded = try JSONDecoder().decode(DeltaChatResult.self, from: Data(data.utf8))
-                deltaResult = decoded
-                guard let choice = decoded.choices.first else {
-                    return
-                }
-                
-                deltaChoice = choice
-                
-                guard let delta = choice.delta else {
-                    return
-                }
-                
-                if chat.content.isEmpty, delta.content?.trimmingCharacters(in: .newlines).isEmpty == true {
-                    return
-                }
-                
-                chat.role = delta.role ?? chat.role
-                chat.content += delta.content ?? ""
-                stream(chat)
-            } catch {
-                print("Chat completion error: \(error)")
-            }
-        }
+        }.store(in: &cancellables)
         source.connect()
     }
     
