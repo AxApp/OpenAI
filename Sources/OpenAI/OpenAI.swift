@@ -101,6 +101,7 @@ extension OpenAI {
         return request(body: r.body, path: r.url, method: r.method, timeoutInterval: r.timeoutInterval)
     }
     
+    #if canImport(Combine)
     func performRequest<ResultType: Codable>(request: Request<ResultType>) -> AnyPublisher<ResultType, Error> {
         
         guard let request = makeRequest(request) else {
@@ -128,6 +129,7 @@ extension OpenAI {
         
         return subject.eraseToAnyPublisher()
     }
+    #endif
     
     
 }
