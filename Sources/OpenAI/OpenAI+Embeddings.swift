@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(Combine)
 import Combine
+#endif
 
 ///MARK: - Embeddings
 public extension OpenAI {
@@ -33,8 +35,10 @@ public extension OpenAI {
         public let data: [Embedding]
     }
 
+#if canImport(Combine)
     func embeddings(query: EmbeddingsQuery) -> AnyPublisher<EmbeddingsResult, Error> {
         performRequest(request: Request<EmbeddingsResult>(body: query, url: .embeddings))
     }
+    #endif
 }
 
