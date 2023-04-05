@@ -173,74 +173,41 @@ public extension OpenAI {
             completion(.failure(OpenAIError.invalidURL))
             return
         }
-        let source = EventSource(urlRequest: request)
-        eventSources.insert(source)
         
-        var deltaResult: DeltaChatResult?
+        let decoder = JSONDecoder()
+        var blocks = [DeltaChatResult]()
         var chat = Chat(role: .assistant, content: "")
-        var deltaChoice = DeltaChatResult.Choice(delta: .init(role: chat.role, content: nil), index: 0, finish_reason: nil)
-        
-        source.state
-            .receive(on: RunLoop.main)
-            .sink { finished in
-            switch finished {
-            case .finished:
-                if let deltaResult {
-                    let result = ChatResult(id: deltaResult.id,
-                                            object: deltaResult.object,
-                                            created: deltaResult.created,
-                                            model: deltaResult.model,
-                                            choices: [.init(index: deltaChoice.index,
+        let parser = EventStreamParser()
+        AF.streamRequest(request).responseStream { response in
+            switch response.event {
+            case let .stream(result):
+                switch result {
+                case let .success(data):
+                    let list = parser.append(data: data)
+                        .compactMap({ $0.data(using: .utf8) })
+                        .compactMap({ try? decoder.decode(DeltaChatResult.self, from: $0) })
+                    blocks.append(contentsOf: list)
+                    chat.content += list.compactMap(\.choices.first?.delta?.content).joined()
+                    stream(chat)
+                }
+            case let .complete(result):
+                if let error = result.error {
+                    completion(.failure(error))
+                } else if let first = blocks.first {
+                    let result = ChatResult(id: first.id,
+                                            object: first.object,
+                                            created: first.created,
+                                            model: first.model,
+                                            choices: [.init(index: first.choices.first?.index ?? 0,
                                                             message: chat,
-                                                            finish_reason: deltaChoice.finish_reason ?? "")],
+                                                            finish_reason: first.choices.last?.finish_reason ?? "")],
                                             usage: .init(prompt_tokens: 0,
                                                          completion_tokens: 0,
                                                          total_tokens: 0))
                     completion(.success(result))
                 }
-            case .failure(let fail):
-                switch fail {
-                case .data(let data):
-                    if let error = try? JSONDecoder().decode(ChatErrorResult.self, from: data).error {
-                        completion(.failure(error))
-                    }
-                case .error(let error):
-                    completion(.failure(error))
-                }
             }
-            self.eventSources.remove(source)
-        } receiveValue: { state in
-            switch state {
-            case .stream(let message):
-                guard let data = message.data, data != "[DONE]" else { return }
-                do {
-                    let decoded = try JSONDecoder().decode(DeltaChatResult.self, from: Data(data.utf8))
-                    deltaResult = decoded
-                    guard let choice = decoded.choices.first else {
-                        return
-                    }
-                    
-                    deltaChoice = choice
-                    
-                    guard let delta = choice.delta else {
-                        return
-                    }
-                    
-                    if chat.content.isEmpty, delta.content?.trimmingCharacters(in: .newlines).isEmpty == true {
-                        return
-                    }
-                    
-                    chat.role = delta.role ?? chat.role
-                    chat.content += delta.content ?? ""
-                    stream(chat)
-                } catch {
-                    print("Chat completion error: \(error)")
-                }
-            case .closed, .connecting:
-                break
-            }
-        }.store(in: &cancellables)
-        source.connect()
+        }
     }
     #endif
 }

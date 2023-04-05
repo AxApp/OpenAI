@@ -26,13 +26,17 @@ final class EventStreamParser {
         return NSString(data: dataBuffer as Data, encoding: String.Encoding.utf8.rawValue) as String?
     }
 
-    func append(data: Data?) -> [Event] {
+    func append(data: Data?) -> [String] {
         guard let data = data else { return [] }
         dataBuffer.append(data)
 
-        let events = extractEventsFromBuffer().compactMap { [weak self] eventString -> Event? in
-            guard let self = self else { return nil }
-            return Event(eventString: eventString, newLineCharacters: self.validNewlineCharacters)
+        let events = extractEventsFromBuffer().compactMap { [weak self] eventString -> String? in
+            guard let self = self,
+                    !eventString.hasPrefix(":") else {
+                return nil
+            }
+
+            return parseEvent(eventString, newLineCharacters: self.validNewlineCharacters)
         }
 
         return events
@@ -84,6 +88,44 @@ final class EventStreamParser {
         }
 
         return nil
+    }
+    
+    func parseEvent(_ eventString: String, newLineCharacters: [String]) -> String? {
+        var event: [String: String] = [:]
+
+        for line in eventString.components(separatedBy: CharacterSet.newlines) as [String] {
+            let (akey, value) = parseLine(line, newLineCharacters: newLineCharacters)
+            guard let key = akey else { continue }
+
+            if let value = value, let previousValue = event[key] ?? nil {
+                event[key] = "\(previousValue)\n\(value)"
+            } else if let value = value {
+                event[key] = value
+            } else {
+                event[key] = nil
+            }
+        }
+        return event["data"]
+    }
+
+    func parseLine(_ line: String, newLineCharacters: [String]) -> (key: String?, value: String?) {
+        var key: NSString?, value: NSString?
+        let scanner = Scanner(string: line)
+        scanner.scanUpTo(":", into: &key)
+        scanner.scanString(":", into: nil)
+
+        for newline in newLineCharacters {
+            if scanner.scanUpTo(newline, into: &value) {
+                break
+            }
+        }
+
+        // for id and data if they come empty they should return an empty string value.
+        if key != "event" && value == nil {
+            value = ""
+        }
+
+        return (key as String?, value as String?)
     }
 }
 #endif
