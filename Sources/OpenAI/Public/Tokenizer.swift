@@ -23,12 +23,26 @@ public extension OpenAI {
 
 public extension OpenAI.Tokenizer {
     
+    struct Word {
+        public let word: String
+        public let token: [Int]
+    }
+    
     func encode(_ text: String) -> [Int] {
+        wordEncode(text).map(\.token).flatMap({ $0 })
+    }
+    
+    func wordEncode(_ text: String) -> [Word] {
         do  {
             let pattern = try NSRegularExpression(pattern: "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+", options: [])
-            let matches = pattern.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)).map {
-                (text as NSString).substring(with: $0.range)
-            }
+            let matches = pattern
+                .matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
+                .compactMap { result -> String? in
+                    guard let range = Range(result.range, in: text) else {
+                        return nil
+                    }
+                    return String(text[range])
+                }
             
             return matches.compactMap { token in
                 let btoken = encodeStr(token).compactMap { value in
@@ -38,8 +52,8 @@ public extension OpenAI.Tokenizer {
                     .split(separator: " ")
                     .map(\.description)
                     .compactMap({ encoder[$0] })
-                return new_tokens
-            }.flatMap({ $0 })
+                return Word(word: token, token: new_tokens)
+            }
         } catch {
             return []
         }
