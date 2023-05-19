@@ -10,7 +10,6 @@ import OpenAI
 
 final class EncoderTests: XCTestCase {
     
-    
     func test_empty_string() {
         let encoder = OpenAI.Tokenizer()
         let str = ""

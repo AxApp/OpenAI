@@ -6,9 +6,6 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
 
 public extension OpenAI {
     
@@ -55,12 +52,5 @@ public extension OpenAI {
         let object: String
         let root: String?
     }
-    
-#if canImport(Combine)
-    func models() -> AnyPublisher<ModelsResult, Error>  {
-        let request = Request<ModelsResult>(body: nil, url: .models, method: .get)
-        return performRequest(request: request)
-    }
-#endif
     
 }

@@ -40,7 +40,7 @@ public extension OpenAI {
         /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
         public var user: String?
         
-        public init(model: OpenAIModel, messages: [Chat], temperature: Double? = nil, top_p: Double? = nil, n: Int? = nil, stream: Bool? = nil, stop: [String]? = nil, max_tokens: Int? = nil, presence_penalty: Double? = nil, frequency_penalty: Double? = nil, logit_bias: [String : Int]? = nil, user: String? = nil) {
+        public init(model: OpenAIModel, messages: [Chat] = [], temperature: Double? = nil, top_p: Double? = nil, n: Int? = nil, stream: Bool? = nil, stop: [String]? = nil, max_tokens: Int? = nil, presence_penalty: Double? = nil, frequency_penalty: Double? = nil, logit_bias: [String : Int]? = nil, user: String? = nil) {
             self.model = model.name
             self.messages = messages
             self.temperature = temperature
@@ -72,16 +72,42 @@ public extension OpenAI {
         
     }
     
-    struct Chat: Codable {
+    struct Chat: Codable, Equatable {
+        
         public var role: String
         public var content: String
         
-        public enum Role: String, Codable {
-            case system
-            case assistant
-            case user
+        public struct Role: RawRepresentable, Codable, Equatable, Hashable, ExpressibleByStringLiteral {
+            
+            public static let user      = Role(rawValue: "user")
+            public static let system    = Role(rawValue: "system")
+            public static let assistant = Role(rawValue: "assistant")
+            
+            public var vaild: Bool {
+                switch self {
+                case .user, .system, .assistant:
+                    return true
+                default:
+                    return false
+                }
+            }
+            
+            public let rawValue: String
+
+            public init(_ rawValue: String) {
+                self.rawValue = rawValue
+            }
+            
+            public init(rawValue: String) {
+                self.rawValue = rawValue
+            }
+            
+            public init(stringLiteral value: String) {
+                self.rawValue = value
+            }
+            
         }
-        
+
         public init(role: String, content: String) {
             self.role = role
             self.content = content
@@ -99,22 +125,34 @@ public extension OpenAI {
         public var errorDescription: String? { message }
     }
     
-    struct ChatErrorResult: Codable {
-        public let error: ChatError
-    }
-    
     struct ChatResult: Codable {
         
         public struct Choice: Codable {
+            
             public let index: Int
             public let message: Chat
             public let finish_reason: String
+            
+            public init(index: Int, message: Chat, finish_reason: String) {
+                self.index = index
+                self.message = message
+                self.finish_reason = finish_reason
+            }
+            
         }
         
         public struct Usage: Codable {
+            
             public let prompt_tokens: Int
             public let completion_tokens: Int
             public let total_tokens: Int
+            
+            public init(prompt_tokens: Int, completion_tokens: Int, total_tokens: Int) {
+                self.prompt_tokens = prompt_tokens
+                self.completion_tokens = completion_tokens
+                self.total_tokens = total_tokens
+            }
+            
         }
         
         public let id: String
@@ -123,91 +161,35 @@ public extension OpenAI {
         public let model: String
         public let choices: [Choice]
         public let usage: Usage
+        
+        public init(id: String, object: String, created: TimeInterval, model: String, choices: [Choice], usage: Usage) {
+            self.id = id
+            self.object = object
+            self.created = created
+            self.model = model
+            self.choices = choices
+            self.usage = usage
+        }
+        
     }
     
-    private struct DeltaChatResult: Codable {
-        struct Chat: Codable {
+    struct DeltaChatResult: Codable {
+        public struct Chat: Codable {
             public let role: String?
             public let content: String?
         }
         
-        struct Choice: Codable {
-            let delta: Chat?
-            var index: Int
-            var finish_reason: String?
+        public struct Choice: Codable {
+            public let delta: Chat?
+            public var index: Int
+            public var finish_reason: String?
         }
         
-        let id: String
-        let object: String
-        let created: TimeInterval
-        let model: String
-        let choices: [Choice]
+        public let id: String
+        public let object: String
+        public let created: TimeInterval
+        public let model: String
+        public let choices: [Choice]
     }
     
-    #if canImport(Combine)
-    func chats(query: ChatQuery, timeoutInterval: TimeInterval = 60.0) -> AnyPublisher<Chat, Error> {
-        let suject = PassthroughSubject<Chat, Error>()
-        chats(query: query, timeoutInterval: timeoutInterval) { result in
-            suject.send(result)
-        } completion: { result in
-            switch result {
-            case .failure(let error):
-                suject.send(completion: .failure(error))
-            case .success(let value):
-                if let chat = value.choices.first?.message {
-                    suject.send(chat)
-                }
-                suject.send(completion: .finished)
-            }
-        }
-        return suject.eraseToAnyPublisher()
-    }
-    
-    func chats(query: ChatQuery,
-               timeoutInterval: TimeInterval = 60.0,
-               stream: @escaping (_ result: Chat) -> Void,
-               completion: @escaping (Result<ChatResult, Error>) -> Void) {
-        var query = query
-        query.stream = true
-        guard let request = makeRequest(Request<ChatQuery>(body: query, url: .chats, timeoutInterval: timeoutInterval)) else {
-            completion(.failure(OpenAIError.invalidURL))
-            return
-        }
-        
-        let decoder = JSONDecoder()
-        var blocks = [DeltaChatResult]()
-        var chat = Chat(role: .assistant, content: "")
-        let parser = EventStreamParser()
-        AF.streamRequest(request).responseStream { response in
-            switch response.event {
-            case let .stream(result):
-                switch result {
-                case let .success(data):
-                    let list = parser.append(data: data)
-                        .compactMap({ $0.data(using: .utf8) })
-                        .compactMap({ try? decoder.decode(DeltaChatResult.self, from: $0) })
-                    blocks.append(contentsOf: list)
-                    chat.content += list.compactMap(\.choices.first?.delta?.content).joined()
-                    stream(chat)
-                }
-            case let .complete(result):
-                if let error = result.error {
-                    completion(.failure(error))
-                } else if let first = blocks.first {
-                    let result = ChatResult(id: first.id,
-                                            object: first.object,
-                                            created: first.created,
-                                            model: first.model,
-                                            choices: [.init(index: first.choices.first?.index ?? 0,
-                                                            message: chat,
-                                                            finish_reason: first.choices.last?.finish_reason ?? "")],
-                                            usage: .init(prompt_tokens: 0,
-                                                         completion_tokens: 0,
-                                                         total_tokens: 0))
-                    completion(.success(result))
-                }
-            }
-        }
-    }
-    #endif
 }

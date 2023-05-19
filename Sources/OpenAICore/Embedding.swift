@@ -6,27 +6,24 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
 
 ///MARK: - Embeddings
 public extension OpenAI {
-
+    
     struct EmbeddingsQuery: Codable {
         /// ID of the model to use.
         public let model: String
         /// Input text to get embeddings for
         public let input: String
-
+        
         public init(model: OpenAIModel, input: String) {
             self.model = model.name
             self.input = input
         }
     }
-
+    
     struct EmbeddingsResult: Codable {
-
+        
         public struct Embedding: Codable {
             public let object: String
             public let embedding: [Double]
@@ -34,11 +31,6 @@ public extension OpenAI {
         }
         public let data: [Embedding]
     }
-
-#if canImport(Combine)
-    func embeddings(query: EmbeddingsQuery) -> AnyPublisher<EmbeddingsResult, Error> {
-        performRequest(request: Request<EmbeddingsResult>(body: query, url: .embeddings))
-    }
-    #endif
+    
 }
 

@@ -6,9 +6,6 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
 
 ///MARK: - Images
 public extension OpenAI {
@@ -35,11 +32,5 @@ public extension OpenAI {
         public let created: TimeInterval
         public let data: [URLResult]
     }
-    
-#if canImport(Combine)
-    func images(query: ImagesQuery) -> AnyPublisher<ImagesResult, Error> {
-        performRequest(request: Request<ImagesResult>(body: query, url: .images))
-    }
-#endif
     
 }

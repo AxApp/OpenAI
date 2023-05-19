@@ -6,9 +6,6 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
 
 ///MARK: - Completions
 public extension OpenAI {
@@ -58,11 +55,5 @@ public extension OpenAI {
         public let model: String
         public let choices: [Choice]
     }
-
-#if canImport(Combine)
-    func completions(query: CompletionsQuery) -> AnyPublisher<CompletionsResult, Error> {
-        performRequest(request: Request<CompletionsResult>(body: query, url: .completions))
-    }
-    #endif
     
 }
