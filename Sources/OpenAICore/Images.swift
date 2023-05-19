@@ -8,9 +8,16 @@
 import Foundation
 
 ///MARK: - Images
-public extension OpenAI {
+public struct OAIImages: OAIAPI {
     
-    struct ImagesQuery: Codable {
+    public let path: OAIPath = .images
+    public var query: Query
+    
+    public init(query: Query) {
+        self.query = query
+    }
+    
+    public struct Query: OAIAPIQuery, Codable {
         /// A text description of the desired image(s). The maximum length is 1000 characters.
         public let prompt: String
         /// The number of images to generate. Must be between 1 and 10.
@@ -25,7 +32,7 @@ public extension OpenAI {
         }
     }
     
-    struct ImagesResult: Codable {
+    public struct Response: Codable {
         public struct URLResult: Codable {
             public let url: String
         }

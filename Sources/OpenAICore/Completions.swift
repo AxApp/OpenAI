@@ -8,9 +8,16 @@
 import Foundation
 
 ///MARK: - Completions
-public extension OpenAI {
+public struct OAICompletions: OAIAPI {    
 
-    struct CompletionsQuery: Codable {
+    public let path: OAIPath = .completions
+    public let query: Query
+    
+    public init(query: Query) {
+        self.query = query
+    }
+    
+    public struct Query: Codable, OAIAPIQuery {
         /// ID of the model to use.
         public let model: String
         /// The prompt(s) to generate completions for, encoded as a string, array of strings, array of tokens, or array of token arrays.
@@ -42,8 +49,8 @@ public extension OpenAI {
             self.user = user
         }
     }
-
-    struct CompletionsResult: Codable {
+    
+    public struct Response: Codable {
         public struct Choice: Codable {
             public let text: String
             public let index: Int

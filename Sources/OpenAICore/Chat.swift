@@ -6,15 +6,18 @@
 //
 
 import Foundation
-#if canImport(Combine)
-import Combine
-#endif
-import Alamofire
 
-///MARK: - Chat
-public extension OpenAI {
+public struct OAIChat: OAIAPI {
     
-    struct ChatQuery: Codable {
+    public var query: Query
+    public let path: OAIPath = .chats
+    
+   public init(_ query: Query) {
+        self.query = query
+    }
+    
+    public struct Query: OAIAPIQuery, Codable {
+        
         /// ID of the model to use. Currently, only gpt-3.5-turbo and gpt-3.5-turbo-0301 are supported.
         public var model: String
         /// The messages to generate chat completions for
@@ -72,41 +75,41 @@ public extension OpenAI {
         
     }
     
-    struct Chat: Codable, Equatable {
+    public struct Role: RawRepresentable, Codable, Equatable, Hashable, ExpressibleByStringLiteral {
+        
+        public static let user      = Role(rawValue: "user")
+        public static let system    = Role(rawValue: "system")
+        public static let assistant = Role(rawValue: "assistant")
+        
+        public var vaild: Bool {
+            switch self {
+            case .user, .system, .assistant:
+                return true
+            default:
+                return false
+            }
+        }
+        
+        public let rawValue: String
+
+        public init(_ rawValue: String) {
+            self.rawValue = rawValue
+        }
+        
+        public init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+        
+        public init(stringLiteral value: String) {
+            self.rawValue = value
+        }
+        
+    }
+    
+    public struct Chat: Codable, Equatable {
         
         public var role: String
         public var content: String
-        
-        public struct Role: RawRepresentable, Codable, Equatable, Hashable, ExpressibleByStringLiteral {
-            
-            public static let user      = Role(rawValue: "user")
-            public static let system    = Role(rawValue: "system")
-            public static let assistant = Role(rawValue: "assistant")
-            
-            public var vaild: Bool {
-                switch self {
-                case .user, .system, .assistant:
-                    return true
-                default:
-                    return false
-                }
-            }
-            
-            public let rawValue: String
-
-            public init(_ rawValue: String) {
-                self.rawValue = rawValue
-            }
-            
-            public init(rawValue: String) {
-                self.rawValue = rawValue
-            }
-            
-            public init(stringLiteral value: String) {
-                self.rawValue = value
-            }
-            
-        }
 
         public init(role: String, content: String) {
             self.role = role
@@ -118,14 +121,7 @@ public extension OpenAI {
         }
     }
     
-    struct ChatError: Codable, LocalizedError {
-        public let message: String
-        public let type: String?
-        public let code: String?
-        public var errorDescription: String? { message }
-    }
-    
-    struct ChatResult: Codable {
+    public struct Response: Codable {
         
         public struct Choice: Codable {
             
@@ -173,7 +169,7 @@ public extension OpenAI {
         
     }
     
-    struct DeltaChatResult: Codable {
+   public struct DeltaChatResult: Codable {
         public struct Chat: Codable {
             public let role: String?
             public let content: String?

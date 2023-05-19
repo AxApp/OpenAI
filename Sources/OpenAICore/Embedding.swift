@@ -8,9 +8,16 @@
 import Foundation
 
 ///MARK: - Embeddings
-public extension OpenAI {
+public struct OAIEmbeddings: OAIAPI {
     
-    struct EmbeddingsQuery: Codable {
+    public let path: OAIPath = .embeddings
+    public let query: Query
+    
+    public init(query: Query) {
+        self.query = query
+    }
+    
+    public struct Query: Codable, OAIAPIQuery {
         /// ID of the model to use.
         public let model: String
         /// Input text to get embeddings for
@@ -22,7 +29,7 @@ public extension OpenAI {
         }
     }
     
-    struct EmbeddingsResult: Codable {
+    public struct Response: Codable {
         
         public struct Embedding: Codable {
             public let object: String

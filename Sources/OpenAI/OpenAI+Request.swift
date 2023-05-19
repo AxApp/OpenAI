@@ -12,82 +12,22 @@ import OpenAICore
 
 public extension OpenAI {
     
-    func request(body: Codable?, path: OAIPath, method: HTTPMethod, timeoutInterval: TimeInterval = 60) -> URLRequest? {
-        guard let url = URL(string: uri(path)) else {
-            return nil
-        }
-        
-        var request = URLRequest(url: url, timeoutInterval: timeoutInterval)
-        request.httpMethod = method.rawValue
-        headers().forEach { (key, value) in
-            request.setValue(value, forHTTPHeaderField: key)
-        }
-        if let query = body, let body = try? JSONEncoder().encode(query)  {
-            request.httpBody = body
-        }
-        return request
-    }
-    
-    func makeRequest<R: Codable>(_ r: Request<R>) -> URLRequest? {
-        return request(body: r.body, path: r.url, method: r.method, timeoutInterval: r.timeoutInterval)
-    }
-    
-    func performRequest<ResultType: Codable>(request: Request<ResultType>) -> AnyPublisher<ResultType, Error> {
-        
-        guard let request = makeRequest(request) else {
-            return Fail<ResultType, OAIError>(error: OAIError.invalidURL)
-                .mapError({ $0 })
-                .eraseToAnyPublisher()
-        }
-        
-        let subject = PassthroughSubject<ResultType, Error>()
-        AF.request(request)
-            .validate(statusCode: 200...299)
-            .responseData { response in
-                switch response.result {
-                case .failure(let error):
-                    if let data = response.data {
-                        if let response = try? JSONDecoder().decode(OAIErrorResponse.self, from: data) {
-                            subject.send(completion: .failure(response.error))
-                        } else if let text = String(data: data, encoding: .utf8) {
-                            subject.send(completion: .failure(OAIError(message: text)))
-                        } else {
-                            subject.send(completion: .failure(error))
-                        }
-                    } else {
-                        subject.send(completion: .failure(error))
-                    }
-                case .success(let value):
-                    do {
-                        let type = try JSONDecoder().decode(ResultType.self, from: value)
-                        subject.send(type)
-                    } catch {
-                        subject.send(completion: .failure(error))
-                    }
-                }
-            }
-        
-        return subject.eraseToAnyPublisher()
-    }
-    
-}
-
-public extension OpenAI {
-    
     struct ChatStreamItem {
-        public let chat: Chat
+        public let chat: OAIChat.Chat
         public let stream: DataStreamRequest.Stream<Data, Never>?
     }
     
-    func chats(query: ChatQuery) -> AnyPublisher<ChatResult, Error> {
-        performRequest(request: Request<ChatResult>(body: query, url: .chats))
+    func chats(_ query: OAIChat.Query) async throws -> OAIChat.Response {
+        var query = query
+        query.stream = false
+        return try await post(OAIChat(query))
     }
     
-    func chats(query: ChatQuery, interval: TimeInterval? = nil) -> AsyncThrowingStream<ChatStreamItem, Error> {
-        .init { continuation in
-            if let stream = query.stream, stream {
+    func chats(stream query: OAIChat.Query, interval: TimeInterval? = nil) -> AsyncThrowingStream<ChatStreamItem, Error> {
+        if let stream = query.stream, stream {
+            return .init { continuation in
                 var date = Date()
-                chats(query: query, timeoutInterval: 60) { result in
+                try? chats(query: query) { result in
                     let now = Date()
                     if let interval = interval, now.timeIntervalSince(date) >= interval {
                         continuation.yield(result)
@@ -104,53 +44,55 @@ public extension OpenAI {
                         continuation.finish()
                     }
                 }
-            } else {
-                chats(query: query).sink { completion in
-                    switch completion {
-                    case .finished:
-                        break
-                    case .failure(let error):
-                        continuation.finish(throwing: error)
-                    }
-                } receiveValue: { result in
-                    continuation.yield(.init(chat: result.chat, stream: nil))
-                }.store(in: &cancellables)
+            }
+        } else {
+            return .init {
+                let response = try await self.chats(query)
+                return .init(chat: response.choices.first?.message ?? .init(role: .assistant, content: ""), stream: nil)
             }
         }
     }
     
-    func chats(query: ChatQuery, timeoutInterval: TimeInterval = 60.0) -> AnyPublisher<ChatStreamItem, Error> {
+    func chats(query: OAIChat.Query) -> AnyPublisher<ChatStreamItem, Error> {
         let suject = PassthroughSubject<ChatStreamItem, Error>()
-        chats(query: query, timeoutInterval: timeoutInterval) { result in
-            suject.send(result)
-        } completion: { result in
-            switch result {
-            case .failure(let error):
-                suject.send(completion: .failure(error))
-            case .success(let value):
-                if let chat = value.choices.first?.message {
-                    suject.send(.init(chat: chat, stream: nil))
+        do {
+            try chats(query: query) { result in
+                suject.send(result)
+            } completion: { result in
+                switch result {
+                case .failure(let error):
+                    suject.send(completion: .failure(error))
+                case .success(let value):
+                    if let chat = value.choices.first?.message {
+                        suject.send(.init(chat: chat, stream: nil))
+                    }
+                    suject.send(completion: .finished)
                 }
-                suject.send(completion: .finished)
             }
+        } catch {
+            suject.send(completion: .failure(error))
         }
         return suject.eraseToAnyPublisher()
     }
     
-    func chats(query: ChatQuery,
-               timeoutInterval: TimeInterval = 60.0,
+    func chats(query: OAIChat.Query,
                stream: @escaping (_ stream: ChatStreamItem) -> Void,
-               completion: @escaping (Result<ChatResult, Error>) -> Void) {
-        var query = query
-        query.stream = true
-        guard let request = makeRequest(Request<ChatQuery>(body: query, url: .chats, timeoutInterval: timeoutInterval)) else {
+               completion: @escaping (Result<OAIChat.Response, Error>) -> Void) throws {
+        guard let url = URL(string: uri(.chats)) else {
             completion(.failure(OAIError.invalidURL))
             return
         }
         
+        var request = try URLRequest(url: url,
+                                 method: .post,
+                                 headers: .init(headers().map({HTTPHeader(name: $0.key, value: $0.value)})))
+        var query = query
+        query.stream = true
+        request.httpBody = try JSONEncoder().encode(query)
+        
         let decoder = JSONDecoder()
-        var blocks = [OpenAI.DeltaChatResult]()
-        var chat = Chat(role: .assistant, content: "")
+        var blocks = [OAIChat.DeltaChatResult]()
+        var chat = OAIChat.Chat(role: .assistant, content: "")
         let parser = EventStreamParser()
         AF.streamRequest(request).responseStream { response in
             switch response.event {
@@ -162,7 +104,7 @@ public extension OpenAI {
                     } else {
                         let list = parser.append(data: data)
                             .compactMap({ $0.data(using: .utf8) })
-                            .compactMap({ try? decoder.decode(OpenAI.DeltaChatResult.self, from: $0) })
+                            .compactMap({ try? decoder.decode(OAIChat.DeltaChatResult.self, from: $0) })
                         blocks.append(contentsOf: list)
                         chat.content += list.compactMap(\.choices.first?.delta?.content).joined()
                         stream(.init(chat: chat, stream: response))
@@ -172,7 +114,7 @@ public extension OpenAI {
                 if let error = result.error {
                     completion(.failure(error))
                 } else if let first = blocks.first {
-                    let result = ChatResult(id: first.id,
+                    let result = OAIChat.Response(id: first.id,
                                             object: first.object,
                                             created: first.created,
                                             model: first.model,
@@ -191,9 +133,28 @@ public extension OpenAI {
 }
 
 public extension OpenAI {
+
+    func post<API: OAIAPI>(_ api: API) async throws -> API.Response {
+        let serialize = AF.request(uri(api.path),
+                                       method: .post,
+                                       headers: .init(.init(headers())), requestModifier: { request in
+            request.httpBody = try api.query.serializeData()
+        }).serializingData()
+        
+        let response = await serialize.response
+        guard let data = response.value else {
+            throw OAIError.emptyData
+        }
+        
+        if let code = response.response?.statusCode, !(200...299).contains(code) {
+            throw try JSONDecoder().decode(OAIErrorResponse.self, from: data).error
+        }
+        
+        return try api.decoder.decode(API.Response.self, from: data)
+    }
     
     func get<API: OAIAPI>(_ api: API) async throws -> API.Response {
-        let serialize =  AF.request(uri(api.path),
+        let serialize = try AF.request(uri(api.path),
                                     parameters: api.query.serialize(),
                                     headers: .init(.init(headers())))
             .serializingData()
@@ -210,21 +171,20 @@ public extension OpenAI {
         return try api.decoder.decode(API.Response.self, from: data)
     }
     
-    func models() -> AnyPublisher<ModelsResult, Error> {
-        let request = Request<ModelsResult>(body: nil, url: .models, method: .get)
-        return performRequest(request: request)
+    func models() async throws -> OAIModels.Response {
+        return try await get(OAIModels())
     }
     
-    func images(query: ImagesQuery) -> AnyPublisher<ImagesResult, Error> {
-        performRequest(request: Request<ImagesResult>(body: query, url: .images))
+    func images(_ query: OAIImages.Query) async throws -> OAIImages.Response {
+        return try await post(OAIImages(query: query))
     }
     
-    func embeddings(query: EmbeddingsQuery) -> AnyPublisher<EmbeddingsResult, Error> {
-        performRequest(request: Request<EmbeddingsResult>(body: query, url: .embeddings))
+    func embeddings(_ query: OAIEmbeddings.Query) async throws -> OAIEmbeddings.Response {
+        return try await post(OAIEmbeddings(query: query))
     }
     
-    func completions(query: CompletionsQuery) -> AnyPublisher<CompletionsResult, Error> {
-        performRequest(request: Request<CompletionsResult>(body: query, url: .completions))
+    func embeddings(_ query: OAICompletions.Query) async throws -> OAICompletions.Response {
+        return try await post(OAICompletions(query: query))
     }
     
 }

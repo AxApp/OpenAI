@@ -18,4 +18,13 @@ public struct OAIHost: RawRepresentable, Codable, Equatable {
         self.rawValue = rawValue
     }
     
+    public init?(_ rawValue: String?) {
+        guard let rawValue = rawValue else { return nil }
+        self.rawValue = rawValue
+    }
+    
+    public init(_ rawValue: String) {
+        self.rawValue = rawValue
+    }
+    
 }
