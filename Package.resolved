@@ -1,21 +1,30 @@
 {
   "pins" : [
     {
-      "identity" : "alamofire",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Alamofire/Alamofire.git",
-      "state" : {
-        "revision" : "78424be314842833c04bc3bef5b72e85fff99204",
-        "version" : "5.6.4"
-      }
-    },
-    {
       "identity" : "openaicore",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/AxApp/OpenAICore",
       "state" : {
-        "revision" : "85781a1c32bc237e4002456f428ecae52f265a4d",
-        "version" : "0.0.2"
+        "revision" : "468e2c073a8e79a22c43c9b43d99e722bbf3ad6a",
+        "version" : "0.0.5"
+      }
+    },
+    {
+      "identity" : "stjson",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/linhay/STJSON",
+      "state" : {
+        "revision" : "98b577df4a4908d53f42cdc3692edf7b4c622063",
+        "version" : "1.0.5"
+      }
+    },
+    {
+      "identity" : "swift-http-types",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-http-types.git",
+      "state" : {
+        "revision" : "99d066e29effa8845e4761dd3f2f831edfdf8925",
+        "version" : "1.0.0"
       }
     }
   ],

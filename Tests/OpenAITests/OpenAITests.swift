@@ -1,6 +1,5 @@
 import XCTest
 @testable import OpenAI
-import Alamofire
 
 @available(iOS 13.0, *)
 @available(watchOS 6.0, *)
@@ -11,24 +10,9 @@ final class OpenAITests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        self.openAI = .init(token: "")
+        self.openAI = .init(serivce: .none)
     }
     
-    func testBillingUsage() async throws {
-        let value = try await openAI.billingUsage(.init())
-        XCTAssertFalse(value.isEmpty)
-    }
-    
-    
-    func testBillingSubscription() async throws {
-        let value = try await openAI.billingSubscription()
-        XCTAssertFalse(false)
-    }
-    
-    func testBillingInvoices() async throws {
-        let value = try await openAI.billingInvoices()
-        XCTAssertFalse(false)
-    }
     //
     //    func testCompletionsAsync() async throws {
     //        let query = OpenAI.CompletionsQuery(model: .textDavinci_003, prompt: "What is 42?", temperature: 0, max_tokens: 100, top_p: 1, frequency_penalty: 0, presence_penalty: 0, stop: ["\\n"])

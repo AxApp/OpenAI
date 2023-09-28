@@ -10,17 +10,15 @@ let package = Package(
         .library(name: "OpenAI", targets: ["OpenAI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.6.4")),
-        .package(url: "https://github.com/AxApp/OpenAICore", .upToNextMajor(from: "0.0.2"))
+        .package(url: "https://github.com/AxApp/OpenAICore", .upToNextMajor(from: "0.0.5"))
     ],
     targets: [
         .target(name: "OpenAI",
                 dependencies: [
-                    "Alamofire",
                     "OpenAICore"
                 ]),
         .testTarget(
             name: "OpenAITests",
-            dependencies: ["OpenAI", "Alamofire"]),
+            dependencies: ["OpenAI"]),
     ]
 )
