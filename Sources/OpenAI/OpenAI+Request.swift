@@ -61,11 +61,13 @@ public struct OpenAI {
     public let serivce: OAISerivce
     
     public let chatCompletion: OAIChatCompletionAPIs
+    public let embedding: OAIEmbeddingAPIs
     public let models: OAIModelAPIs
 
     public init(client: OAIClientProtocol = OAIClient.shared, serivce: OAISerivce) {
         self.client = client
         self.serivce = serivce
+        embedding = .init(client: client, serivce: serivce)
         chatCompletion = .init(client: client, serivce: serivce)
         models = .init(client: client, serivce: serivce)
     }
