@@ -10,7 +10,7 @@ let package = Package(
         .library(name: "OpenAI", targets: ["OpenAI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/AxApp/OpenAICore", .upToNextMajor(from: "0.0.5"))
+        .package(url: "https://github.com/AxApp/OpenAICore", .upToNextMajor(from: "0.0.9"))
     ],
     targets: [
         .target(name: "OpenAI",

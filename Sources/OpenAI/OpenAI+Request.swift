@@ -31,7 +31,7 @@ public class OAIClient: OAIClientProtocol {
     public func stream(for request: HTTPRequest, from bodyData: Data) throws -> AsyncThrowingStream<OAIClientResponse, Error> {
         
         guard let urlRequest = URLRequest(httpRequest: request) else {
-            throw OAIError(.failedToConvertHTTPRequestToURLRequest)
+            throw OAIError(type: .failedToConvertHTTPRequestToURLRequest)
         }
         
         let (stream, continuation) = AsyncThrowingStream<OAIClientResponse, Error>.makeStream()
